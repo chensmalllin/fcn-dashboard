@@ -398,7 +398,7 @@ function ContractModal({ contract, onSave, onDelete, onClose }) {
                       ref: {u.market === "JP" ? "¥" : "$"}{Number(u.referencePrice).toFixed(2)}
                     </span>
                   ) : (
-                    <span className="text-xs text-gray-300 dark:text-gray-600 whitespace-nowrap shrink-0 min-w-[90px]">發行日自動抓取</span>
+                    <span className="text-xs text-gray-300 dark:text-gray-600 whitespace-nowrap shrink-0 min-w-[90px]">交易日自動抓取</span>
                   )}
                   {f.underlyings.length > 1 && (
                     <button onClick={() => rmU(i)} className="text-red-400 hover:text-red-600 shrink-0 transition-colors">✕</button>
@@ -496,25 +496,54 @@ export default function App() {
 
   // Initial load
   useEffect(() => {
-    let stored = sGet(CONTRACTS_KEY) ?? [];
-    const storedIds = new Set(stored.map(c => c.id));
-    const newFromSeeds = SEEDS.filter(s => !storedIds.has(s.id));
-    if (newFromSeeds.length > 0) {
-      stored = [...stored, ...newFromSeeds];
-      sSet(CONTRACTS_KEY, stored);
-    }
-    contractsRef.current = stored;
-    setContracts(stored);
+    (async () => {
+      let stored = sGet(CONTRACTS_KEY) ?? [];
+      const storedIds = new Set(stored.map(c => c.id));
+      const newFromSeeds = SEEDS.filter(s => !storedIds.has(s.id));
+      if (newFromSeeds.length > 0) {
+        stored = [...stored, ...newFromSeeds];
+        sSet(CONTRACTS_KEY, stored);
+      }
+      contractsRef.current = stored;
+      setContracts(stored);
 
-    const cached = sGet(PRICES_KEY);
-    if (cached) {
-      setPriceCache(cached);
-      if (Date.now() - new Date(cached.lastUpdated).getTime() > CACHE_TTL) {
+      // Backfill any underlyings missing referencePrice (e.g. newly added seeds)
+      const needsFill = stored.some(c => c.underlyings.some(u => !(u.referencePrice > 0)));
+      if (needsFill) {
+        const filled = await Promise.all(stored.map(async (c) => {
+          if (c.underlyings.every(u => u.referencePrice > 0)) return c;
+          const kiRatio = (c.kiRatio || 0) === 0 ? c.strikeRatio : c.kiRatio;
+          const underlyings = await Promise.all(c.underlyings.map(async (u) => {
+            if (u.referencePrice > 0) return u;
+            let ref = 0;
+            try { ref = await fetchHistorical(u.ticker, c.tradeDate); } catch {}
+            if (!ref) return u;
+            return {
+              ...u,
+              referencePrice: ref,
+              koPrice:     parseFloat((ref * c.koRatio).toFixed(4)),
+              kiPrice:     parseFloat((ref * kiRatio).toFixed(4)),
+              strikePrice: parseFloat((ref * c.strikeRatio).toFixed(4)),
+            };
+          }));
+          return { ...c, underlyings };
+        }));
+        contractsRef.current = filled;
+        setContracts(filled);
+        sSet(CONTRACTS_KEY, filled);
+        stored = filled;
+      }
+
+      const cached = sGet(PRICES_KEY);
+      if (cached) {
+        setPriceCache(cached);
+        if (Date.now() - new Date(cached.lastUpdated).getTime() > CACHE_TTL) {
+          doRefresh(stored);
+        }
+      } else {
         doRefresh(stored);
       }
-    } else {
-      doRefresh(stored);
-    }
+    })();
   }, [doRefresh]);
 
   // Keep ref in sync
