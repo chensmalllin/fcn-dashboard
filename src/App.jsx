@@ -564,10 +564,14 @@ export default function App() {
         const imported = JSON.parse(ev.target.result);
         if (!Array.isArray(imported)) throw new Error("格式錯誤");
 
-        // Fill missing reference prices using tradeDate
+        // Fill missing reference prices using tradeDate; default kiRatio to strikeRatio if 0
         const filled = await Promise.all(imported.map(async (c) => {
+          const kiRatio = (c.kiRatio || 0) === 0 ? c.strikeRatio : c.kiRatio;
+          const contract = { ...c, kiRatio };
           const underlyings = await Promise.all(c.underlyings.map(async (u) => {
-            if (u.referencePrice > 0) return u;
+            if (u.referencePrice > 0) {
+              return { ...u, kiPrice: parseFloat((u.referencePrice * kiRatio).toFixed(4)) };
+            }
             let ref = 0;
             try { ref = await fetchHistorical(u.ticker, c.tradeDate); } catch {}
             if (!ref) return u;
@@ -575,11 +579,11 @@ export default function App() {
               ...u,
               referencePrice: ref,
               koPrice:     parseFloat((ref * c.koRatio).toFixed(4)),
-              kiPrice:     parseFloat((ref * c.kiRatio).toFixed(4)),
+              kiPrice:     parseFloat((ref * kiRatio).toFixed(4)),
               strikePrice: parseFloat((ref * c.strikeRatio).toFixed(4)),
             };
           }));
-          return { ...c, underlyings };
+          return { ...contract, underlyings };
         }));
 
         setContracts(prev => {
