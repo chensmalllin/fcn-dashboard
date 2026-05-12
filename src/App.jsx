@@ -559,15 +559,34 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const imported = JSON.parse(ev.target.result);
         if (!Array.isArray(imported)) throw new Error("格式錯誤");
+
+        // Fill missing reference prices using tradeDate
+        const filled = await Promise.all(imported.map(async (c) => {
+          const underlyings = await Promise.all(c.underlyings.map(async (u) => {
+            if (u.referencePrice > 0) return u;
+            let ref = 0;
+            try { ref = await fetchHistorical(u.ticker, c.tradeDate); } catch {}
+            if (!ref) return u;
+            return {
+              ...u,
+              referencePrice: ref,
+              koPrice:     parseFloat((ref * c.koRatio).toFixed(4)),
+              kiPrice:     parseFloat((ref * c.kiRatio).toFixed(4)),
+              strikePrice: parseFloat((ref * c.strikeRatio).toFixed(4)),
+            };
+          }));
+          return { ...c, underlyings };
+        }));
+
         setContracts(prev => {
           const existingIds = new Set(prev.map(c => c.id));
-          const toAdd = imported.filter(c => !existingIds.has(c.id));
+          const toAdd = filled.filter(c => !existingIds.has(c.id));
           const merged = [
-            ...prev.map(c => { const upd = imported.find(i => i.id === c.id); return upd ?? c; }),
+            ...prev.map(c => { const upd = filled.find(i => i.id === c.id); return upd ?? c; }),
             ...toAdd,
           ];
           contractsRef.current = merged;
