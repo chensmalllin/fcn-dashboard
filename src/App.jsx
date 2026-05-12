@@ -734,7 +734,7 @@ export default function App() {
 
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[700px]">
+            <table className="w-full text-sm min-w-[800px]">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                   {[
@@ -742,6 +742,7 @@ export default function App() {
                     { label: "商品名稱" },
                     { label: "代號" },
                     { label: "發行日", field: "issueDate" },
+                    { label: "首觀察日", field: "firstObserveDate" },
                     { label: "觀察結束", field: "observeEndDate" },
                     { label: "年利率", align: "right" },
                     { label: "配息/月", align: "right" },
@@ -768,7 +769,7 @@ export default function App() {
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="py-16 text-center text-gray-400 dark:text-gray-600 text-sm">
+                    <td colSpan={10} className="py-16 text-center text-gray-400 dark:text-gray-600 text-sm">
                       尚無合約，點擊「新增合約」建立第一筆
                     </td>
                   </tr>
@@ -793,6 +794,7 @@ export default function App() {
                       </td>
                       <td className="py-3 px-3 font-mono text-xs text-gray-400">…{c.productCode.slice(-4)}</td>
                       <td className="py-3 px-3 text-xs text-gray-500 whitespace-nowrap">{c.issueDate.slice(2)}</td>
+                      <td className="py-3 px-3 text-xs text-gray-500 whitespace-nowrap">{c.firstObserveDate.slice(2)}</td>
                       <td className="py-3 px-3 text-xs text-gray-500 whitespace-nowrap">{c.observeEndDate.slice(2)}</td>
                       <td className="py-3 px-3 text-right text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
                         {(c.couponRate * 100).toFixed(2)}%
@@ -810,7 +812,7 @@ export default function App() {
 
                     expanded && (
                       <tr key={`${c.id}-detail`} className={cfg.rowBg}>
-                        <td colSpan={9} className="px-4 pb-4">
+                        <td colSpan={10} className="px-4 pb-4">
                           <div className="flex items-center justify-between mb-1 mt-1">
                             <span className="text-xs text-gray-400">
                               {c.kiMechanism} · {c.couponFrequency === "monthly" ? "月配" : "季配"} · 本金 {c.principalCurrency} {c.principalAmount.toLocaleString()}
