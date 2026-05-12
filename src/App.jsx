@@ -360,7 +360,12 @@ function ContractModal({ contract, onSave, onDelete, onClose }) {
 
           <div className="grid grid-cols-3 gap-3">
             <Field label="KO 比例 (%)"><input type="number" step="0.1" min="0" className={IC} value={f.koRatio} onChange={e => set("koRatio", e.target.value)} /></Field>
-            <Field label="KI 比例 (%)"><input type="number" step="0.1" min="0" className={IC} value={f.kiRatio} onChange={e => set("kiRatio", e.target.value)} /></Field>
+            <Field label="KI 比例 (%)">
+              <input type="number" step="0.1" min="0" className={IC} value={f.kiRatio} onChange={e => set("kiRatio", e.target.value)} />
+              {(parseFloat(f.kiRatio) || 0) === 0 && (
+                <p className="text-xs text-amber-500 mt-1">填 0 將自動使用執行價格比例（{f.strikeRatio}%）</p>
+              )}
+            </Field>
             <Field label="執行價格比例 (%)"><input type="number" step="0.1" min="0" className={IC} value={f.strikeRatio} onChange={e => set("strikeRatio", e.target.value)} /></Field>
           </div>
 
