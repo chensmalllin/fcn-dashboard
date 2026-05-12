@@ -21,7 +21,6 @@ function sSet(key, val) {
 const CONTRACTS_KEY = "fcn-contracts";
 const PRICES_KEY    = "fcn-prices";
 const CACHE_TTL     = 4 * 60 * 60 * 1000;
-const PROXY         = "https://corsproxy.io/?url=";
 
 // ══════════════════════════════════════════════════════════════════
 // Seed Data
@@ -53,27 +52,16 @@ const SEEDS = [
 // ══════════════════════════════════════════════════════════════════
 
 async function fetchPrice(ticker) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
-  const r = await fetch(`${PROXY}${encodeURIComponent(url)}`);
+  const r = await fetch(`/api/price?ticker=${encodeURIComponent(ticker)}`);
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  const d = await r.json();
-  const meta = d?.chart?.result?.[0]?.meta;
-  if (!meta?.regularMarketPrice) throw new Error("no price");
-  return { price: meta.regularMarketPrice, currency: meta.currency };
+  return r.json();
 }
 
 async function fetchHistorical(ticker, dateStr) {
-  const d = new Date(dateStr + "T00:00:00Z");
-  const p1 = Math.floor(d.getTime() / 1000);
-  const p2 = p1 + 86400 * 5; // 5-day window for weekends/holidays
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&period1=${p1}&period2=${p2}`;
-  const r = await fetch(`${PROXY}${encodeURIComponent(url)}`);
+  const r = await fetch(`/api/historical?ticker=${encodeURIComponent(ticker)}&date=${dateStr}`);
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  const data = await r.json();
-  const closes = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close ?? [];
-  const valid = closes.find(v => v != null);
-  if (!valid) throw new Error(`no close for ${ticker} on ${dateStr}`);
-  return valid;
+  const d = await r.json();
+  return d.price;
 }
 
 async function fetchRates() {
