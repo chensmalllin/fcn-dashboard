@@ -14,6 +14,8 @@
 ## 快速開始
 
 ```bash
+git clone https://github.com/chensmalllin/fcn-dashboard.git
+cd fcn-dashboard
 npm install
 npm run dev      # http://localhost:5173
 ```
