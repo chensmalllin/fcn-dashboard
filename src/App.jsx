@@ -262,7 +262,7 @@ function ContractModal({ contract, onSave, onDelete, onClose }) {
         const market = ticker.endsWith(".T") ? "JP" : "US";
         let ref = typeof u.referencePrice === "number" && u.referencePrice > 0 ? u.referencePrice : 0;
         if (!ref) {
-          try { ref = await fetchHistorical(ticker, f.issueDate); }
+          try { ref = await fetchHistorical(ticker, f.tradeDate); }
           catch { ref = 0; }
         }
         return {
