@@ -1,4 +1,4 @@
-export async function handler(event) {
+exports.handler = async function (event) {
   const { ticker, date } = event.queryStringParameters ?? {};
   if (!ticker || !date) return { statusCode: 400, body: "missing ticker or date" };
 
@@ -22,4 +22,4 @@ export async function handler(event) {
   } catch (e) {
     return { statusCode: 502, body: e.message };
   }
-}
+};
