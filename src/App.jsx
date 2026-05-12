@@ -254,8 +254,8 @@ function ContractModal({ contract, onSave, onDelete, onClose }) {
     setBusy(true); setErr("");
     try {
       const koR = parseFloat(f.koRatio) / 100;
-      const kiR = parseFloat(f.kiRatio) / 100;
       const stR = parseFloat(f.strikeRatio) / 100;
+      const kiR = (parseFloat(f.kiRatio) || 0) === 0 ? stR : parseFloat(f.kiRatio) / 100;
 
       const underlyings = await Promise.all(f.underlyings.map(async (u) => {
         const ticker = u.ticker.trim().toUpperCase();
