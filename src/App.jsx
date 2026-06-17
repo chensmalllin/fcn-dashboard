@@ -497,11 +497,9 @@ export default function App() {
   // Initial load
   useEffect(() => {
     (async () => {
-      let stored = sGet(CONTRACTS_KEY) ?? [];
-      const storedIds = new Set(stored.map(c => c.id));
-      const newFromSeeds = SEEDS.filter(s => !storedIds.has(s.id));
-      if (newFromSeeds.length > 0) {
-        stored = [...stored, ...newFromSeeds];
+      let stored = sGet(CONTRACTS_KEY);
+      if (stored === null) {
+        stored = SEEDS;
         sSet(CONTRACTS_KEY, stored);
       }
       contractsRef.current = stored;
