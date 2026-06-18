@@ -525,9 +525,20 @@ export default function App() {
     (async () => {
       let stored;
       if (supabase) {
-        stored = await dbAll();
-        if (stored.length === 0) {
-          await dbUpsertMany(SEEDS);
+        let dbErr = null;
+        try {
+          stored = await dbAll();
+        } catch (e) {
+          dbErr = e;
+          setFetchErr("資料庫讀取失敗：" + e.message);
+          stored = [];
+        }
+        if (!dbErr && stored.length === 0) {
+          try {
+            await dbUpsertMany(SEEDS);
+          } catch (e) {
+            setFetchErr("資料庫寫入失敗：" + e.message);
+          }
           stored = SEEDS;
         }
       } else {
