@@ -1,4 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = (() => {
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  return url && key ? createClient(url, key) : null;
+})();
 
 // ══════════════════════════════════════════════════════════════════
 // Storage  (window.storage for Claude Artifacts, localStorage fallback)
@@ -12,6 +19,25 @@ function sGet(key) {
 }
 function sSet(key, val) {
   try { (window.storage ?? localStorage).setItem(key, JSON.stringify(val)); } catch {}
+}
+
+// ── Supabase DB helpers (used only when supabase client is available) ──
+async function dbAll() {
+  const { data, error } = await supabase.from("contracts").select("data");
+  if (error) throw error;
+  return data.map(r => r.data);
+}
+async function dbUpsert(c) {
+  const { error } = await supabase.from("contracts").upsert({ id: c.id, data: c });
+  if (error) throw error;
+}
+async function dbUpsertMany(cs) {
+  const { error } = await supabase.from("contracts").upsert(cs.map(c => ({ id: c.id, data: c })));
+  if (error) throw error;
+}
+async function dbDelete(id) {
+  const { error } = await supabase.from("contracts").delete().eq("id", id);
+  if (error) throw error;
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -274,7 +300,7 @@ function ContractModal({ contract, onSave, onDelete, onClose }) {
         };
       }));
 
-      onSave({
+      await onSave({
         id:               contract?.id ?? mkId(),
         kiMechanism:      f.kiMechanism,
         broker:           f.broker,
@@ -497,10 +523,19 @@ export default function App() {
   // Initial load
   useEffect(() => {
     (async () => {
-      let stored = sGet(CONTRACTS_KEY);
-      if (stored === null) {
-        stored = SEEDS;
-        sSet(CONTRACTS_KEY, stored);
+      let stored;
+      if (supabase) {
+        stored = await dbAll();
+        if (stored.length === 0) {
+          await dbUpsertMany(SEEDS);
+          stored = SEEDS;
+        }
+      } else {
+        stored = sGet(CONTRACTS_KEY);
+        if (stored === null) {
+          stored = SEEDS;
+          sSet(CONTRACTS_KEY, stored);
+        }
       }
       contractsRef.current = stored;
       setContracts(stored);
@@ -528,7 +563,8 @@ export default function App() {
         }));
         contractsRef.current = filled;
         setContracts(filled);
-        sSet(CONTRACTS_KEY, filled);
+        if (supabase) await dbUpsertMany(filled);
+        else sSet(CONTRACTS_KEY, filled);
         stored = filled;
       }
 
@@ -547,17 +583,17 @@ export default function App() {
   // Keep ref in sync
   useEffect(() => { contractsRef.current = contracts; }, [contracts]);
 
-  const saveContract = useCallback((c) => {
+  const saveContract = useCallback(async (c) => {
+    if (supabase) await dbUpsert(c);
     setContracts(prev => {
       const next = prev.some(x => x.id === c.id)
         ? prev.map(x => x.id === c.id ? c : x)
         : [...prev, c];
       contractsRef.current = next;
-      sSet(CONTRACTS_KEY, next);
+      if (!supabase) sSet(CONTRACTS_KEY, next);
       return next;
     });
     setModal(undefined);
-    // Refresh to pick up any new tickers
     setTimeout(() => doRefresh(), 80);
   }, [doRefresh]);
 
@@ -565,10 +601,11 @@ export default function App() {
     setContracts(prev => {
       const next = prev.filter(c => c.id !== id);
       contractsRef.current = next;
-      sSet(CONTRACTS_KEY, next);
+      if (!supabase) sSet(CONTRACTS_KEY, next);
       return next;
     });
     setModal(undefined);
+    if (supabase) dbDelete(id).catch(e => console.error("刪除失敗:", e));
   }, []);
 
   function toggleSort(field) {
@@ -618,17 +655,16 @@ export default function App() {
           return { ...contract, underlyings };
         }));
 
-        setContracts(prev => {
-          const existingIds = new Set(prev.map(c => c.id));
-          const toAdd = filled.filter(c => !existingIds.has(c.id));
-          const merged = [
-            ...prev.map(c => { const upd = filled.find(i => i.id === c.id); return upd ?? c; }),
-            ...toAdd,
-          ];
-          contractsRef.current = merged;
-          sSet(CONTRACTS_KEY, merged);
-          return merged;
-        });
+        const existingIds = new Set(contractsRef.current.map(c => c.id));
+        const toAdd = filled.filter(c => !existingIds.has(c.id));
+        const merged = [
+          ...contractsRef.current.map(c => { const upd = filled.find(i => i.id === c.id); return upd ?? c; }),
+          ...toAdd,
+        ];
+        contractsRef.current = merged;
+        setContracts(merged);
+        if (supabase) await dbUpsertMany(filled);
+        else sSet(CONTRACTS_KEY, merged);
         alert(`匯入完成，共 ${imported.length} 筆合約`);
       } catch {
         alert("匯入失敗：請確認檔案格式正確");
